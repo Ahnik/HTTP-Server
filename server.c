@@ -11,7 +11,7 @@
 #define PORT 4221
 #define MAX_STR_LENGTH 4096
 
-void serve_user(int client_fd){
+void serve_user(int client_fd, int argc, char** argv){
 	// Reading the HTTP request from the client
 	char readBuffer[MAX_STR_LENGTH];
 	readBuffer[MAX_STR_LENGTH-1] = '\0';
@@ -26,11 +26,11 @@ void serve_user(int client_fd){
 
  	readBuffer[bytesRead] = '\0';
 
-	char* method = strdup(readBuffer);
 	char* content = strdup(readBuffer);
+	char* content_dup = strdup(readBuffer);
 	printf("Content: %s\n", content);
 
-	method = strtok(method, " ");
+	char* method = strtok(content_dup, " ");
 	printf("Method: %s\n", method);
 
 	char* reqPath = strtok(readBuffer, " ");
@@ -61,7 +61,7 @@ void serve_user(int client_fd){
 			if (find_substring("\r\n\r\n", user_agent)){
 				printf("Error: User agent not found\n");
 				close(client_fd);
-				exit(1);
+				return;
 			}
 		}
 
@@ -76,6 +76,32 @@ void serve_user(int client_fd){
 		sprintf(res, format, strlen(user_agent), user_agent);
 		bytesSent = send(client_fd, res, strlen(res), 0);
 	}	
+    else if(strncmp(reqPath, "/files/", 7) == 0 && argc > 2){
+        char* directory;
+
+        if(strcmp(argv[1], "--directory") == 0){
+            directory = realpath(argv[2], NULL);
+        }
+        else{
+            printf("Directory not mentioned: %s\n", strerror(errno));
+            close(client_fd);
+            exit(1);
+        }
+
+        char* filename = strtok(reqPath, "/");
+        filename = strtok(NULL, "/");
+
+        ssize_t pathsize = strlen(directory) + strlen(filename) + 2;
+
+        directory = (char*)reallocarray(directory, pathsize, sizeof(*directory));
+
+        strcat(directory, "/");
+        strcat(directory, filename);
+
+        printf("%s\n", directory);
+
+        free(directory);
+    }
 	else if (strcmp(reqPath, "/") == 0){
 		char* res = "HTTP/1.1 200 OK\r\n\r\n";
 		bytesSent = send(client_fd, res, strlen(res), 0);
@@ -88,12 +114,16 @@ void serve_user(int client_fd){
 	if (bytesSent <= 0){
 		printf("Send failed: %s\n", strerror(errno));
 		close(client_fd);
-		exit(1);
+		return;
 	}
+
+    free(content);
+    free(content_dup);
 	close(client_fd);
 }
 
 int main(int argc, char** argv) {
+    printf("%s\n", argv[1]);
 	// Disable output buffering
 	setbuf(stdout, NULL);		// Sets the stdout stream to be unbuffered
  	setbuf(stderr, NULL);		// Sets the stderr stream to be unbuffered
@@ -161,7 +191,7 @@ int main(int argc, char** argv) {
 		if(!fork()){
 			close(server_fd);
 
-			serve_user(client_fd);
+			serve_user(client_fd, argc, argv);
 		}
 		close(client_fd);
 	}
