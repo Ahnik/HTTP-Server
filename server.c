@@ -43,6 +43,8 @@ void serve_user(int client_fd, int argc, char** argv){
 		str = strtok(NULL, "/");
 		
 		const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
+
+		/* TODO: Implement dynamic memory allocation for the HTTP response */
 		char res[MAX_STR_LENGTH];
 
 		sprintf(res, format, strlen(str), str);
@@ -71,6 +73,8 @@ void serve_user(int client_fd, int argc, char** argv){
 		//printf("%s\n", user_agent);
 
 		const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
+
+		/* TODO: Implement dynamic memory allocation for the HTTP response */
 		char res[MAX_STR_LENGTH];
 
 		sprintf(res, format, strlen(user_agent), user_agent);
@@ -101,15 +105,37 @@ void serve_user(int client_fd, int argc, char** argv){
         printf("%s\n", directory);
 
         if(!access(directory, F_OK)){
-            FILE* file = fopen(directory, "r");
+            FILE* file = fopen(directory, "rb");
 
             if(file == NULL){
                 fprintf(stderr, "Error: Unable to open file requested\n");
                 return;
             }
-            
 
-            fclose(file);
+			size_t filesize = fsize(file);
+			char* fileBuffer = (char*)calloc(filesize+1, sizeof(*fileBuffer));
+			fileBuffer[filesize] = '\0';
+			
+			size_t newLen = fread(fileBuffer, sizeof(char), filesize, file);
+			if(ferror(file) != 0){
+				fprintf(stderr, "Error: Unable to read file\n");
+				return;
+			}
+			
+			fileBuffer[newLen++] = '\0';
+			fclose(file);
+
+			const char* format = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %zu\r\n\r\n%s";	
+			
+			/* TODO: Implement dynamic memory allocation for the HTTP response */
+			char res[MAX_STR_LENGTH];
+
+			sprintf(res, format, strlen(fileBuffer), fileBuffer);
+			bytesSent = send(client_fd, res, strlen(res), 0);
+
+			printf("%s\n", fileBuffer);
+
+			free(fileBuffer);
         }
         else{
             char* res = "HTTP/1.1 404 Not Found\r\n\r\n";
@@ -139,12 +165,13 @@ void serve_user(int client_fd, int argc, char** argv){
 }
 
 int main(int argc, char** argv) {
-    printf("%s\n", argv[1]);
+    //printf("%s\n", argv[1]);
 	// Disable output buffering
 	setbuf(stdout, NULL);		// Sets the stdout stream to be unbuffered
  	setbuf(stderr, NULL);		// Sets the stderr stream to be unbuffered
 
-	int server_fd, client_addr_len;
+	int server_fd;
+	socklen_t client_addr_len;
 
 	// client_addr is a struct sockaddr_in specifying the client address.	
 	struct sockaddr_in client_addr;
@@ -191,7 +218,7 @@ int main(int argc, char** argv) {
 	}
 	
 	printf("Waiting for a client to connect...\n");
-	client_addr_len = sizeof(client_addr);
+	client_addr_len = (socklen_t)sizeof(client_addr);
 	
 	// The accept() system call extracts the first connection request on the queue of pending connections for the listening socket.
 	// It then creates a new connected socket, and returns a new file descriptor referring to that socket.

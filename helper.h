@@ -27,7 +27,7 @@ int find_substring(char* substring, char* string){
     return 0;
 }
 
-long int fsize(FILE* file){
+size_t fsize(FILE* file){
     fseek(file, 0L, SEEK_END);
     long size = ftell(file);
     fseek(file, 0L, SEEK_SET);
