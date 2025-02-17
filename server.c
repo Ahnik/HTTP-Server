@@ -6,7 +6,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
-#include "find_substring.h"
+#include "helper.h"
 
 #define PORT 4221
 #define MAX_STR_LENGTH 4096
@@ -99,6 +99,22 @@ void serve_user(int client_fd, int argc, char** argv){
         strcat(directory, filename);
 
         printf("%s\n", directory);
+
+        if(!access(directory, F_OK)){
+            FILE* file = fopen(directory, "r");
+
+            if(file == NULL){
+                fprintf(stderr, "Error: Unable to open file requested\n");
+                return;
+            }
+            
+
+            fclose(file);
+        }
+        else{
+            char* res = "HTTP/1.1 404 Not Found\r\n\r\n";
+		    bytesSent = send(client_fd, res, strlen(res), 0);
+        }
 
         free(directory);
     }

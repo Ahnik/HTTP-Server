@@ -1,7 +1,8 @@
-#ifndef FIND_SUBSTRING_H
-#define FIND_SUBSTRING_H
+#ifndef HELPER_H
+#define HELPER_H
 
 #include <string.h>
+#include <stdio.h>
 
 int find_substring(char* substring, char* string){
     int substringLen = strlen(substring);
@@ -24,6 +25,14 @@ int find_substring(char* substring, char* string){
     }
     
     return 0;
+}
+
+long fsize(FILE* file){
+    fseek(file, 0L, SEEK_END);
+    long size = ftell(file);
+    fseek(file, 0L, SEEK_SET);
+
+    return size;
 }
 
 #endif
