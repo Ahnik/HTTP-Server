@@ -3,10 +3,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include "helper.h"
 
@@ -149,6 +147,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 
             if(res == NULL){
                 fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
+                close(client_fd);
                 return;
             }
 
