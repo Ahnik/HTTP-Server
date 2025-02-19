@@ -44,11 +44,19 @@ void handle_connection(int client_fd, int argc, char** argv){
 		str = strtok(NULL, "/");
 		
 		const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
+        size_t str_len = strlen(str);
 
-		char res[MAX_STR_LENGTH];
+		char* res = (char*)calloc(TEXT_PLAIN_HEADERS_LENGTH + str_len + count_digits(str_len) + 1, sizeof(*res));
+
+        if(res == NULL){
+            fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
+            close(client_fd);
+            return;
+        }
 
 		sprintf(res, format, strlen(str), str);
 		bytesSent = send(client_fd, res, strlen(res), 0);	
+        free(res);
 	}
 	else if(strncmp(reqPath, "/user-agent", 11) == 0){	/* Vulnerable to stack smashing */
 		char* user_agent = strtok(NULL, " ");
