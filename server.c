@@ -11,7 +11,7 @@
 #define PORT 4221
 #define MAX_STR_LENGTH 4096
 
-void serve_user(int client_fd, int argc, char** argv){
+void handle_connection(int client_fd, int argc, char** argv){
 	// Reading the HTTP request from the client
 	char readBuffer[MAX_STR_LENGTH];
 	readBuffer[MAX_STR_LENGTH-1] = '\0';
@@ -234,7 +234,7 @@ int main(int argc, char** argv) {
 		if(!fork()){
 			close(server_fd);
 
-			serve_user(client_fd, argc, argv);
+			handle_connection(client_fd, argc, argv);
 		}
 		close(client_fd);
 	}
