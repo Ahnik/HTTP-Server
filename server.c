@@ -4,7 +4,6 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <string.h>
-#include <errno.h>
 #include <unistd.h>
 #include "helper.h"
 
@@ -19,7 +18,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 	ssize_t bytesRead = recv(client_fd, readBuffer, MAX_STR_LENGTH-1, 0);
 
 	if(bytesRead < 0){
-		printf("Receiving failed: %s\n", strerror(errno));
+		fprintf(stderr, "Error: Receiving failed\n");
 		close(client_fd);
 		exit(1);
 	}
@@ -87,7 +86,7 @@ void handle_connection(int client_fd, int argc, char** argv){
             directory = realpath(argv[2], NULL);
         }
         else{
-            printf("Directory not mentioned: %s\n", strerror(errno));
+            fprintf(stderr, "Error: Directory not mentioned\n");
             close(client_fd);
             exit(1);
         }
@@ -154,7 +153,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 	}
 
 	if (bytesSent <= 0){
-		printf("Send failed: %s\n", strerror(errno));
+		fprintf(stderr, "Error: Send failed\n");
 		close(client_fd);
 		return;
 	}
@@ -184,7 +183,7 @@ int main(int argc, char** argv) {
 	// support a particular socket type within the IPv4 family, thus it is set to 0.
 	server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (server_fd == -1) {
-		printf("Socket creation failed: %s...\n", strerror(errno));
+		fprintf(stderr, "Error: Socket creation failed\n");
 	 	return 1;
 	}
 	
@@ -192,7 +191,7 @@ int main(int argc, char** argv) {
 	// ensures that we don't run into 'Address already in use' errors
 	int reuse = 1;
 	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-	 	printf("SO_REUSEADDR failed: %s \n", strerror(errno));
+	 	fprintf(stderr, "Error: SO_REUSEADDR failed\n");
 	 	return 1;
 	 }
 	
@@ -204,7 +203,7 @@ int main(int argc, char** argv) {
 	
 	// bind() assigns the address specified by serv_addr to our socket.
 	if (bind(server_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) != 0) {
-	 	printf("Bind failed: %s \n", strerror(errno));
+	 	fprintf(stderr, "Error: Bind failed\n");
 	 	return 1;
 	}
 	
@@ -213,7 +212,7 @@ int main(int argc, char** argv) {
 	// socket may grow.
 	int connection_backlog = 10;
 	if (listen(server_fd, connection_backlog) != 0) {
-	 	printf("Listen failed: %s \n", strerror(errno));
+	 	fprintf(stderr, "Error: Listen failed\n");
 	 	return 1;
 	}
 	
