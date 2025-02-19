@@ -11,6 +11,8 @@
 #include "helper.h"
 
 #define MAX_STR_LENGTH 4096
+#define OCTET_STREAM_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: \r\n\r\n")
+#define TEXT_PLAIN_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: \r\n\r\n")
 
 void handle_connection(int client_fd, int argc, char** argv){
 	// Reading the HTTP request from the client
@@ -72,12 +74,20 @@ void handle_connection(int client_fd, int argc, char** argv){
 		user_agent = strtok(user_agent, "\r\n");
 
 		const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
+        size_t user_agent_len = strlen(user_agent);
 
 		/* TODO: Implement dynamic memory allocation for the HTTP response */
-		char res[MAX_STR_LENGTH];
+		char* res = (char*)calloc(TEXT_PLAIN_HEADERS_LENGTH + user_agent_len + count_digits(user_agent_len) + 1, sizeof(*res));
+
+        if(res == NULL){
+            fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
+            close(client_fd);
+            return;
+        }
 
 		sprintf(res, format, strlen(user_agent), user_agent);
 		bytesSent = send(client_fd, res, strlen(res), 0);
+        free(res);
 	}	
     else if(strncmp(reqPath, "/files/", 7) == 0 && argc > 2){
         char* directory;
@@ -98,6 +108,12 @@ void handle_connection(int client_fd, int argc, char** argv){
 
         directory = (char*)reallocarray(directory, pathsize, sizeof(*directory));
 
+        if(directory == NULL){
+            fprintf(stderr, "Error: Memory reallocation for storing the directory name failed\n");
+            close(client_fd);
+            return;
+        }
+
         strcat(directory, "/");
         strcat(directory, filename);
 
@@ -108,6 +124,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 
             if(file == NULL){
                 fprintf(stderr, "Error: Unable to open file requested\n");
+                close(client_fd);
                 return;
             }
 
@@ -115,6 +132,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 
             if(filesize == -1){
                 fprintf(stderr, "Error: Unable to determine the size of file requested\n");
+                close(client_fd);
                 return;
             }
 
@@ -124,22 +142,28 @@ void handle_connection(int client_fd, int argc, char** argv){
 			size_t newLen = fread(fileBuffer, sizeof(char), (size_t)filesize, file);
 			if(ferror(file) != 0){
 				fprintf(stderr, "Error: Unable to read file\n");
+                close(client_fd);
 				return;
 			}
 			
 			fileBuffer[newLen++] = '\0';
 			fclose(file);
 
-			const char* format = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %zu\r\n\r\n%s";	
-			
-			/* TODO: Implement dynamic memory allocation for the HTTP response */
-			char res[MAX_STR_LENGTH];
+			const char* format = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length:%zu \r\n\r\n%s";	            
+            char* res = (char*)calloc(OCTET_STREAM_HEADERS_LENGTH + count_digits(filesize) + filesize + 1, sizeof(*res));
 
-			sprintf(res, format, strlen(fileBuffer), fileBuffer);
+            if(res == NULL){
+                fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
+                return;
+            }
+			/* TODO: Implement dynamic memory allocation for the HTTP response */
+			//char res[MAX_STR_LENGTH];
+
+			sprintf(res, format, filesize, fileBuffer);
 			bytesSent = send(client_fd, res, strlen(res), 0);
 
 			printf("%s\n", fileBuffer);
-
+            free(res);
 			free(fileBuffer);
         }
         else{

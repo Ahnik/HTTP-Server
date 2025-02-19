@@ -38,4 +38,15 @@ ssize_t fsize(FILE* file){
     return size;
 }
 
+size_t count_digits(ssize_t num){
+    size_t cnt = 1;
+
+    while(num%10 != num){
+        num /= 10;
+        cnt++;
+    }
+    
+    return cnt; 
+}
+
 #endif
