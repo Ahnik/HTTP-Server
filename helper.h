@@ -27,10 +27,13 @@ int find_substring(char* substring, char* string){
     return 0;
 }
 
-size_t fsize(FILE* file){
-    fseek(file, 0L, SEEK_END);
-    long size = ftell(file);
-    fseek(file, 0L, SEEK_SET);
+ssize_t fsize(FILE* file){
+    if(fseek(file, 0L, SEEK_END) == -1)
+        return -1;
+    ssize_t size = ftell(file);
+
+    if(fseek(file, 0L, SEEK_SET) == -1)
+        return -1;
 
     return size;
 }

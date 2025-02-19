@@ -69,9 +69,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 		}
 
 		user_agent = strtok(NULL, " ");
-		//printf("%s\n", user_agent);
 		user_agent = strtok(user_agent, "\r\n");
-		//printf("%s\n", user_agent);
 
 		const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
 
@@ -113,11 +111,17 @@ void handle_connection(int client_fd, int argc, char** argv){
                 return;
             }
 
-			size_t filesize = fsize(file);
+			ssize_t filesize = fsize(file);
+
+            if(filesize == -1){
+                fprintf(stderr, "Error: Unable to determine the size of file requested\n");
+                return;
+            }
+
 			char* fileBuffer = (char*)calloc(filesize+1, sizeof(*fileBuffer));
 			fileBuffer[filesize] = '\0';
 			
-			size_t newLen = fread(fileBuffer, sizeof(char), filesize, file);
+			size_t newLen = fread(fileBuffer, sizeof(char), (size_t)filesize, file);
 			if(ferror(file) != 0){
 				fprintf(stderr, "Error: Unable to read file\n");
 				return;

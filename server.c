@@ -9,7 +9,6 @@
 #define PORT 4221
 #define MAX_STR_LENGTH 4096
 
-
 int main(int argc, char** argv) {
     //printf("%s\n", argv[1]);
 	// Disable output buffering
