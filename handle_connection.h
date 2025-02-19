@@ -47,7 +47,6 @@ void handle_connection(int client_fd, int argc, char** argv){
 		
 		const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
 
-		/* TODO: Implement dynamic memory allocation for the HTTP response */
 		char res[MAX_STR_LENGTH];
 
 		sprintf(res, format, strlen(str), str);
@@ -55,13 +54,10 @@ void handle_connection(int client_fd, int argc, char** argv){
 	}
 	else if(strncmp(reqPath, "/user-agent", 11) == 0){	/* Vulnerable to stack smashing */
 		char* user_agent = strtok(NULL, " ");
-		//printf("%s\n", user_agent);
 		user_agent = strtok(NULL, " ");
-		//printf("%s\n", user_agent);
 
 		while(!find_substring("User-Agent:", user_agent)){
 			user_agent = strtok(NULL, " ");
-			//printf("%s\n", user_agent);
 
 			if (find_substring("\r\n\r\n", user_agent)){
 				printf("Error: User agent not found\n");
@@ -76,7 +72,6 @@ void handle_connection(int client_fd, int argc, char** argv){
 		const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
         size_t user_agent_len = strlen(user_agent);
 
-		/* TODO: Implement dynamic memory allocation for the HTTP response */
 		char* res = (char*)calloc(TEXT_PLAIN_HEADERS_LENGTH + user_agent_len + count_digits(user_agent_len) + 1, sizeof(*res));
 
         if(res == NULL){
@@ -156,8 +151,6 @@ void handle_connection(int client_fd, int argc, char** argv){
                 fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
                 return;
             }
-			/* TODO: Implement dynamic memory allocation for the HTTP response */
-			//char res[MAX_STR_LENGTH];
 
 			sprintf(res, format, filesize, fileBuffer);
 			bytesSent = send(client_fd, res, strlen(res), 0);
