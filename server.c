@@ -6,10 +6,8 @@
 #include "handle_connection.h"
 
 #define PORT 4221
-#define MAX_STR_LENGTH 4096
 
 int main(int argc, char** argv) {
-    //printf("%s\n", argv[1]);
 	// Disable output buffering
 	setbuf(stdout, NULL);		// Sets the stdout stream to be unbuffered
  	setbuf(stderr, NULL);		// Sets the stderr stream to be unbuffered
@@ -42,7 +40,7 @@ int main(int argc, char** argv) {
 	
 	// serv_addr is a struct specifying the socket address of the server.
 	struct sockaddr_in serv_addr = { .sin_family = AF_INET ,
-									 .sin_port = htons(4221),
+									 .sin_port = htons(PORT),
 									 .sin_addr = { htonl(INADDR_ANY) },
 	 								};
 	
