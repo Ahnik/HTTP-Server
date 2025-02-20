@@ -5,17 +5,17 @@
 #include <stdio.h>
 
 int find_substring(char* substring, char* string){
-    int substringLen = strlen(substring);
-    int stringLen = strlen(string);
+    size_t substringLen = strlen(substring);
+    size_t stringLen = strlen(string);
 
-    char* p1 = substring + substringLen - 1;
-    char* p2 = string + stringLen - 1;
+    size_t i = substringLen - 1;
+    size_t j = stringLen - 1;
 
     if (substringLen <= stringLen){
-        for (int i=0; i<substringLen; i++){
-            if (*p1 == *p2){
-                p1--;
-                p2--;
+        for (int k=0; k<substringLen; k++){
+            if (*(substring + i) == *(string + j)){
+                i--;
+                j--;
             }
             else
                 return 0;

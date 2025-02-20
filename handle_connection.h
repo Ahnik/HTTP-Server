@@ -8,24 +8,39 @@
 #include <unistd.h>
 #include "helper.h"
 
-#define MAX_STR_LENGTH 4096
 #define OCTET_STREAM_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: \r\n\r\n")
 #define TEXT_PLAIN_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: \r\n\r\n")
+#define REQUEST_END "\r\n\r\n"
 
 void handle_connection(int client_fd, int argc, char** argv){
 	// Reading the HTTP request from the client
-	char readBuffer[MAX_STR_LENGTH];
-	readBuffer[MAX_STR_LENGTH-1] = '\0';
-	
-	ssize_t bytesRead = recv(client_fd, readBuffer, MAX_STR_LENGTH-1, 0);
+	char* readBuffer = NULL;
+	char chara;
+	size_t size = 0;
 
-	if(bytesRead < 0){
-		fprintf(stderr, "Error: Receiving failed\n");
-		close(client_fd);
-		exit(1);
+	while(recv(client_fd, (void*)&chara, sizeof(chara), 0) == sizeof(chara)){
+		size++;
+		readBuffer = (char*)reallocarray((void*)readBuffer, size, sizeof(*readBuffer));
+		if(readBuffer == NULL){
+			fprintf(stderr, "Error: Memory allocation for HTTP request failed\n");
+			close(client_fd); 	
+			return;
+		}
+		readBuffer[size - 1] = chara;
+
+		if(find_substring(REQUEST_END, readBuffer))
+			break;
 	}
 
- 	readBuffer[bytesRead] = '\0';
+	size++;
+	readBuffer = (char*)reallocarray((void*)readBuffer, size, sizeof(*readBuffer));
+	if(readBuffer == NULL){
+		fprintf(stderr, "Error: Memory allocation for HTTP request failed\n");
+		close(client_fd); 	
+		return;
+	}
+
+ 	readBuffer[size - 1] = '\0';
 
 	char* content = strdup(readBuffer);
 	char* content_dup = strdup(readBuffer);
@@ -190,6 +205,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 
     free(content);
     free(content_dup);
+	free(readBuffer);
 	close(client_fd);
 }
 
