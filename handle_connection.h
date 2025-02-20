@@ -28,7 +28,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 		}
 		readBuffer[size - 1] = chara;
 
-		if(find_substring(REQUEST_END, readBuffer))
+		if(is_substring(REQUEST_END, readBuffer))
 			break;
 	}
 
@@ -77,10 +77,10 @@ void handle_connection(int client_fd, int argc, char** argv){
 		char* user_agent = strtok(NULL, " ");
 		user_agent = strtok(NULL, " ");
 
-		while(!find_substring("User-Agent:", user_agent)){
+		while(!is_substring("User-Agent:", user_agent)){
 			user_agent = strtok(NULL, " ");
 
-			if (find_substring("\r\n\r\n", user_agent)){
+			if (is_substring(REQUEST_END, user_agent)){
 				printf("Error: User agent not found\n");
 				close(client_fd);
 				return;

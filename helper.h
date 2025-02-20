@@ -4,7 +4,8 @@
 #include <string.h>
 #include <stdio.h>
 
-int find_substring(char* substring, char* string){
+// Returns 1 if the substring occurs at the end of the string and 0 otherwise
+int is_substring(char* substring, char* string){
     size_t substringLen = strlen(substring);
     size_t stringLen = strlen(string);
 
@@ -27,6 +28,7 @@ int find_substring(char* substring, char* string){
     return 0;
 }
 
+// Returns the size of the file normally and returns -1 in case of any error
 ssize_t fsize(FILE* file){
     if(fseek(file, 0L, SEEK_END) == -1)
         return -1;
@@ -38,6 +40,7 @@ ssize_t fsize(FILE* file){
     return size;
 }
 
+// Returns the number of digits in an integral number
 size_t count_digits(ssize_t num){
     size_t cnt = 1;
 
