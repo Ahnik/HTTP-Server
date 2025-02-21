@@ -2,6 +2,7 @@
 #define HELPER_H
 
 #include <string.h>
+#include <sys/stat.h>
 #include <stdio.h>
 
 // Returns 1 if the substring occurs at the end of the string and 0 otherwise
@@ -50,6 +51,20 @@ size_t count_digits(ssize_t num){
     }
     
     return cnt; 
+}
+
+// Returns 1 if a particular directory whose path is given exists and returns 0 otherwise
+int is_directory_exists(const char* path){
+    struct stat stats;
+
+    if(stat(path, &stats) == -1)
+        return -1;
+
+    // Check for directory existence
+    if(S_ISDIR(stats.st_mode))
+        return 1;
+    
+    return 0;
 }
 
 #endif

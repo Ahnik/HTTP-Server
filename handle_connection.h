@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <errno.h>
 #include "helper.h"
 
 #define OCTET_STREAM_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: \r\n\r\n")
@@ -21,7 +22,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 	// Reading the HTTP request and dynamically allocating memory for the buffer one byte at a time
 	while(1){
 		if(recv(client_fd, (void*)&chara, sizeof(chara), 0) == -1){
-			fprintf(stderr, "Error: Receiving failed\n");
+			fprintf(stderr, "Error: Receiving failed - %s\n", strerror(errno));
 			close(client_fd);
 			return;
 		}
@@ -103,7 +104,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 				user_agent = strtok(NULL, " ");
 
 				if (is_substring(REQUEST_END, user_agent)){
-					printf("Error: User agent not found\n");
+					fprintf(stderr, "Error: User agent not found\n");
 					close(client_fd);
 					return;
 				}
@@ -133,7 +134,13 @@ void handle_connection(int client_fd, int argc, char** argv){
 			free(res);
 		}	
 		// Implementing support for /files/{filename} endpoint
-		else if(strncmp(reqPath, "/files/", 7) == 0 && argc > 2){
+		else if(strncmp(reqPath, "/files/", 7) == 0){
+			if(argc <= 2){
+				fprintf(stderr, "Error: Insufficient arguments\n");
+				close(client_fd);
+				exit(1);
+			}
+			/* TODO: Implement error handling for if the directory name is invalid */
 			// Variable for storing the directory name where the requested file is to be located
 			char* directory;
 
@@ -143,7 +150,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 				directory = realpath(argv[2], NULL);
 			}
 			else{
-				fprintf(stderr, "Error: Directory not mentioned\n");
+				fprintf(stderr, "Error: No --directory flag\n");
 				close(client_fd);
 				exit(1);
 			}
@@ -182,7 +189,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 				ssize_t filesize = fsize(file);
 
 				if(filesize == -1){
-					fprintf(stderr, "Error: Unable to determine the size of file requested\n");
+					fprintf(stderr, "Error: Unable to determine the size of file requested \n");
 					close(client_fd);
 					return;
 				}
@@ -244,7 +251,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 		}
 
 		if (bytesSent <= 0){
-			fprintf(stderr, "Error: Send failed\n");
+			fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
 			close(client_fd);
 			return;
 		}

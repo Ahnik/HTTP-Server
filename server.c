@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <unistd.h>
+#include <errno.h>
 #include "handle_connection.h"
 
 #define PORT 4221
@@ -26,7 +27,7 @@ int main(int argc, char** argv) {
 	// support a particular socket type within the IPv4 family, thus it is set to 0.
 	server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (server_fd == -1) {
-		fprintf(stderr, "Error: Socket creation failed\n");
+		fprintf(stderr, "Error: Socket creation failed - %s\n", strerror(errno));
 	 	return 1;
 	}
 	
@@ -34,7 +35,7 @@ int main(int argc, char** argv) {
 	// ensures that we don't run into 'Address already in use' errors
 	int reuse = 1;
 	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-	 	fprintf(stderr, "Error: SO_REUSEADDR failed\n");
+	 	fprintf(stderr, "Error: SO_REUSEADDR failed - %s\n", strerror(errno));
 	 	return 1;
 	 }
 	
@@ -46,7 +47,7 @@ int main(int argc, char** argv) {
 	
 	// bind() assigns the address specified by serv_addr to our socket.
 	if (bind(server_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) != 0) {
-	 	fprintf(stderr, "Error: Bind failed\n");
+	 	fprintf(stderr, "Error: Bind failed - %s\n", strerror(errno));
 	 	return 1;
 	}
 	
@@ -55,7 +56,7 @@ int main(int argc, char** argv) {
 	// socket may grow.
 	int connection_backlog = 10;
 	if (listen(server_fd, connection_backlog) != 0) {
-	 	fprintf(stderr, "Error: Listen failed\n");
+	 	fprintf(stderr, "Error: Listen failed - %s\n", strerror(errno));
 	 	return 1;
 	}
 	
