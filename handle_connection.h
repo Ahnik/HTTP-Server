@@ -13,12 +13,19 @@
 #define REQUEST_END "\r\n\r\n"
 
 void handle_connection(int client_fd, int argc, char** argv){
-	// Reading the HTTP request from the client
+	// Reading the HTTP request from the client in readBuffer whose memory is dynamically allocated
 	char* readBuffer = NULL;
 	char chara;
 	size_t size = 0;
 
-	while(recv(client_fd, (void*)&chara, sizeof(chara), 0) == sizeof(chara)){
+	// Reading the HTTP request and dynamically allocating memory for the buffer one byte at a time
+	while(1){
+		if(recv(client_fd, (void*)&chara, sizeof(chara), 0) == -1){
+			fprintf(stderr, "Error: Receiving failed\n");
+			close(client_fd);
+			return;
+		}
+
 		size++;
 		readBuffer = (char*)reallocarray((void*)readBuffer, size, sizeof(*readBuffer));
 		if(readBuffer == NULL){
@@ -42,170 +49,213 @@ void handle_connection(int client_fd, int argc, char** argv){
 
  	readBuffer[size - 1] = '\0';
 
+	// Extracting the content of the HTTP request
 	char* content = strdup(readBuffer);
 	char* content_dup = strdup(readBuffer);
 	printf("Content: %s\n", content);
 
+	// Extracting the HTTP method in the HTTP request
 	char* method = strtok(content_dup, " ");
 	printf("Method: %s\n", method);
 
+	// Extracting requested target pathname in the HTTP request
 	char* reqPath = strtok(readBuffer, " ");
 	reqPath = strtok(NULL, " ");
 
+	// Variable to store the number of bytes sent 
 	ssize_t bytesSent;
 
-	if(strncmp(reqPath, "/echo/", 6) == 0){
-		char* str = strtok(reqPath, "/");
-		str = strtok(NULL, "/");
-		
-		const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
-        size_t str_len = strlen(str);
+	// Implementing support for GET method
+	if(strcmp(method, "GET") == 0){
+		// Implementing support for /echo/{str} endpoint
+		if(strncmp(reqPath, "/echo/", 6) == 0){
+			// The string to be returned back to the client
+			char* str = strtok(reqPath, "/");
+			str = strtok(NULL, "/");
+			
+			// The format of the HTTP response
+			const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
+			size_t str_len = strlen(str);
 
-		char* res = (char*)calloc(TEXT_PLAIN_HEADERS_LENGTH + str_len + count_digits(str_len) + 1, sizeof(*res));
+			// Dynamically allocating memory for the HTTP response
+			char* res = (char*)calloc(TEXT_PLAIN_HEADERS_LENGTH + str_len + count_digits(str_len) + 1, sizeof(*res));
 
-        if(res == NULL){
-            fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
-            close(client_fd);
-            return;
-        }
-
-		sprintf(res, format, strlen(str), str);
-		bytesSent = send(client_fd, res, strlen(res), 0);	
-        free(res);
-	}
-	else if(strncmp(reqPath, "/user-agent", 11) == 0){	/* Vulnerable to stack smashing */
-		char* user_agent = strtok(NULL, " ");
-		user_agent = strtok(NULL, " ");
-
-		while(!is_substring("User-Agent:", user_agent)){
-			user_agent = strtok(NULL, " ");
-
-			if (is_substring(REQUEST_END, user_agent)){
-				printf("Error: User agent not found\n");
+			if(res == NULL){
+				fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
 				close(client_fd);
 				return;
 			}
+
+			// Sending the HTTP response
+			sprintf(res, format, strlen(str), str);
+			bytesSent = send(client_fd, res, strlen(res), 0);	
+
+			// Freeing up allocated memory
+			free(res);
 		}
+		// Implementing support for /user-agent endpoint
+		else if(strncmp(reqPath, "/user-agent", 11) == 0){	
+			// Variable for storing user agent used by the client
+			char* user_agent = strtok(NULL, " ");
+			user_agent = strtok(NULL, " ");
 
-		user_agent = strtok(NULL, " ");
-		user_agent = strtok(user_agent, "\r\n");
+			while(!is_substring("User-Agent:", user_agent)){
+				user_agent = strtok(NULL, " ");
 
-		const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
-        size_t user_agent_len = strlen(user_agent);
+				if (is_substring(REQUEST_END, user_agent)){
+					printf("Error: User agent not found\n");
+					close(client_fd);
+					return;
+				}
+			}
 
-		char* res = (char*)calloc(TEXT_PLAIN_HEADERS_LENGTH + user_agent_len + count_digits(user_agent_len) + 1, sizeof(*res));
+			user_agent = strtok(NULL, " ");
+			user_agent = strtok(user_agent, "\r\n");
 
-        if(res == NULL){
-            fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
-            close(client_fd);
-            return;
-        }
+			// The format of the HTTP response
+			const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
+			size_t user_agent_len = strlen(user_agent);
 
-		sprintf(res, format, strlen(user_agent), user_agent);
-		bytesSent = send(client_fd, res, strlen(res), 0);
-        free(res);
-	}	
-    else if(strncmp(reqPath, "/files/", 7) == 0 && argc > 2){
-        char* directory;
+			// Dynamically allocating memory for the HTTP response
+			char* res = (char*)calloc(TEXT_PLAIN_HEADERS_LENGTH + user_agent_len + count_digits(user_agent_len) + 1, sizeof(*res));
 
-        if(strcmp(argv[1], "--directory") == 0){
-            directory = realpath(argv[2], NULL);
-        }
-        else{
-            fprintf(stderr, "Error: Directory not mentioned\n");
-            close(client_fd);
-            exit(1);
-        }
-
-        char* filename = strtok(reqPath, "/");
-        filename = strtok(NULL, "/");
-
-        ssize_t pathsize = strlen(directory) + strlen(filename) + 2;
-
-        directory = (char*)reallocarray(directory, pathsize, sizeof(*directory));
-
-        if(directory == NULL){
-            fprintf(stderr, "Error: Memory reallocation for storing the directory name failed\n");
-            close(client_fd);
-            return;
-        }
-
-        strcat(directory, "/");
-        strcat(directory, filename);
-
-        printf("%s\n", directory);
-
-        if(!access(directory, F_OK)){
-            FILE* file = fopen(directory, "rb");
-
-            if(file == NULL){
-                fprintf(stderr, "Error: Unable to open file requested\n");
-                close(client_fd);
-                return;
-            }
-
-			ssize_t filesize = fsize(file);
-
-            if(filesize == -1){
-                fprintf(stderr, "Error: Unable to determine the size of file requested\n");
-                close(client_fd);
-                return;
-            }
-
-			char* fileBuffer = (char*)calloc(filesize+1, sizeof(*fileBuffer));
-			fileBuffer[filesize] = '\0';
-			
-			size_t newLen = fread(fileBuffer, sizeof(char), (size_t)filesize, file);
-			if(ferror(file) != 0){
-				fprintf(stderr, "Error: Unable to read file\n");
-                close(client_fd);
+			if(res == NULL){
+				fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
+				close(client_fd);
 				return;
 			}
-			
-			fileBuffer[newLen++] = '\0';
-			fclose(file);
 
-			const char* format = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length:%zu \r\n\r\n%s";	            
-            char* res = (char*)calloc(OCTET_STREAM_HEADERS_LENGTH + count_digits(filesize) + filesize + 1, sizeof(*res));
-
-            if(res == NULL){
-                fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
-                close(client_fd);
-                return;
-            }
-
-			sprintf(res, format, filesize, fileBuffer);
+			// Sending the HTTP response to the client
+			sprintf(res, format, strlen(user_agent), user_agent);
 			bytesSent = send(client_fd, res, strlen(res), 0);
 
-			printf("%s\n", fileBuffer);
-            free(res);
-			free(fileBuffer);
-        }
-        else{
-            char* res = "HTTP/1.1 404 Not Found\r\n\r\n";
-		    bytesSent = send(client_fd, res, strlen(res), 0);
-        }
+			// Freeing up allocated memory
+			free(res);
+		}	
+		// Implementing support for /files/{filename} endpoint
+		else if(strncmp(reqPath, "/files/", 7) == 0 && argc > 2){
+			// Variable for storing the directory name where the requested file is to be located
+			char* directory;
 
-        free(directory);
-    }
-	else if (strcmp(reqPath, "/") == 0){
-		char* res = "HTTP/1.1 200 OK\r\n\r\n";
-		bytesSent = send(client_fd, res, strlen(res), 0);
-	}
-	else{
-		char* res = "HTTP/1.1 404 Not Found\r\n\r\n";
-		bytesSent = send(client_fd, res, strlen(res), 0);
+			// Checking if the --directory flag is used while running this program or not
+			if(strcmp(argv[1], "--directory") == 0){
+				// Extracting the real path for the directory
+				directory = realpath(argv[2], NULL);
+			}
+			else{
+				fprintf(stderr, "Error: Directory not mentioned\n");
+				close(client_fd);
+				exit(1);
+			}
+
+			// Extracting the requested filename
+			char* filename = strtok(reqPath, "/");
+			filename = strtok(NULL, "/");
+
+			// The size of the real path of the file
+			ssize_t pathsize = strlen(directory) + strlen(filename) + 2;
+
+			// Dynamically allocating memory store the full real path name of the requested file
+			directory = (char*)reallocarray(directory, pathsize, sizeof(*directory));
+
+			if(directory == NULL){
+				fprintf(stderr, "Error: Memory reallocation for storing the directory name failed\n");
+				close(client_fd);
+				return;
+			}
+
+			strcat(directory, "/");
+			strcat(directory, filename);
+
+			// If the server can access the file, open it
+			if(!access(directory, F_OK)){
+				// File pointer to the requested file
+				FILE* file = fopen(directory, "rb");
+
+				if(file == NULL){
+					fprintf(stderr, "Error: Unable to open file requested\n");
+					close(client_fd);
+					return;
+				}
+
+				// The size of the requested file
+				ssize_t filesize = fsize(file);
+
+				if(filesize == -1){
+					fprintf(stderr, "Error: Unable to determine the size of file requested\n");
+					close(client_fd);
+					return;
+				}
+
+				// Dynamically allocating memory for a buffer for storing the contents of the requested file
+				char* fileBuffer = (char*)calloc(filesize+1, sizeof(*fileBuffer));
+				fileBuffer[filesize] = '\0';
+				
+				// Reading the contents of the file into the buffer
+				size_t newLen = fread(fileBuffer, sizeof(char), (size_t)filesize, file);
+				if(ferror(file) != 0){
+					fprintf(stderr, "Error: Unable to read file\n");
+					close(client_fd);
+					return;
+				}
+				
+				// NULL terminating the buffer and closing the requested file
+				fileBuffer[newLen++] = '\0';
+				fclose(file);
+
+				// The format of the HTTP response
+				const char* format = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length:%zu \r\n\r\n%s";	   
+				
+				// Dynamically allocate memory for the HTTP response
+				char* res = (char*)calloc(OCTET_STREAM_HEADERS_LENGTH + count_digits(filesize) + filesize + 1, sizeof(*res));
+
+				if(res == NULL){
+					fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
+					close(client_fd);
+					return;
+				}
+
+				// Sending the HTTP response
+				sprintf(res, format, filesize, fileBuffer);
+				bytesSent = send(client_fd, res, strlen(res), 0);
+
+				// Freeing up allocated memory
+				free(res);
+				free(fileBuffer);
+			}
+			// Otherwise send Not Found
+			else{
+				char* res = "HTTP/1.1 404 Not Found\r\n\r\n";
+				bytesSent = send(client_fd, res, strlen(res), 0);
+			}
+
+			// Freeing up allocated memory 
+			free(directory);
+		}
+		// Implementing support for empty HTTP GET request
+		else if (strcmp(reqPath, "/") == 0){
+			char* res = "HTTP/1.1 200 OK\r\n\r\n";
+			bytesSent = send(client_fd, res, strlen(res), 0);
+		}
+
+		else{
+			char* res = "HTTP/1.1 404 Not Found\r\n\r\n";
+			bytesSent = send(client_fd, res, strlen(res), 0);
+		}
+
+		if (bytesSent <= 0){
+			fprintf(stderr, "Error: Send failed\n");
+			close(client_fd);
+			return;
+		}
 	}
 
-	if (bytesSent <= 0){
-		fprintf(stderr, "Error: Send failed\n");
-		close(client_fd);
-		return;
-	}
-
+	// Freeing up allocated memory
     free(content);
     free(content_dup);
 	free(readBuffer);
+
+	// Closing the client socket file descriptor
 	close(client_fd);
 }
 
