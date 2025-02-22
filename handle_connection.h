@@ -148,6 +148,12 @@ void handle_connection(int client_fd, int argc, char** argv){
 			if(strcmp(argv[1], "--directory") == 0){
 				// Extracting the real path for the directory
 				directory = realpath(argv[2], NULL);
+
+				if(directory == NULL){
+					fprintf(stderr, "Error: Unable to resolve absolute path - %s\n", strerror(errno));
+					close(client_fd);
+					exit(1);
+				}
 			}
 			else{
 				fprintf(stderr, "Error: No --directory flag\n");
