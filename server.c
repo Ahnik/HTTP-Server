@@ -1,3 +1,10 @@
+/* This is the main file of this project that is to be compiled and executed. 
+The executable is to executed as "./server --directory <directory_relative_path>"*/
+
+// This program is to be executed in a Linux environment(native or virtual).
+// The source file is to be compiled and executed with atleast two arguments.
+// The first argument should be a flag, that is "--directory" and the second argument should be the directory path of the directory 
+// in which the files which can be requested by the client are located, relative to the current working directory.
 #include <stdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>

@@ -135,11 +135,13 @@ void handle_connection(int client_fd, int argc, char** argv){
 		}	
 		// Implementing support for /files/{filename} endpoint
 		else if(strncmp(reqPath, "/files/", 7) == 0){
+			// Using this endpoint, the server will return the requested file.
 			if(argc <= 2){
-				fprintf(stderr, "Error: Insufficient arguments\n");
+				fprintf(stderr, "Usage: --directory <relative_directory_path\n");
 				close(client_fd);
 				exit(1);
 			}
+
 			/* TODO: Implement error handling for if the directory name is invalid */
 			// Variable for storing the directory name where the requested file is to be located
 			char* directory;
