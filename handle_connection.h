@@ -13,9 +13,9 @@
 #define TEXT_PLAIN_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: \r\n\r\n")
 #define REQUEST_END "\r\n\r\n"
 
-ssize_t handle_echo_route(int client_fd, char* path);
-ssize_t handle_user_agent_route(int client_fd, char* path);
-ssize_t handle_files_route(int client_fd, char* path, int argc, char** argv);
+int handle_echo_route(int client_fd, char* path);
+int handle_user_agent_route(int client_fd, char* path);
+int handle_files_route(int client_fd, char* path, int argc, char** argv);
 
 // Function to handle each connection
 void handle_connection(int client_fd, int argc, char** argv){
@@ -69,29 +69,29 @@ void handle_connection(int client_fd, int argc, char** argv){
 	reqPath = strtok(NULL, " ");
 
 	// Variable to store the number of bytes sent 
-	ssize_t bytesSent;
+	int status;
 
 	// Implementing support for GET method
 	if(strcmp(method, "GET") == 0){
 		// Implementing support for /echo/{str} endpoint
 		if(strncmp(reqPath, "/echo/", 6) == 0){
-			bytesSent = handle_echo_route(client_fd, reqPath);
+			status = handle_echo_route(client_fd, reqPath);
 		}
 
 		// Implementing support for /user-agent endpoint
 		else if(strncmp(reqPath, "/user-agent", 11) == 0){	
-			bytesSent = handle_user_agent_route(client_fd, reqPath);
+			status = handle_user_agent_route(client_fd, reqPath);
 		}	
 
 		// Implementing support for /files/{filename} endpoint
 		else if(strncmp(reqPath, "/files/", 7) == 0){
-			bytesSent = handle_files_route(client_fd, reqPath, argc, argv);
+			status = handle_files_route(client_fd, reqPath, argc, argv);
 		}
 
 		// Implementing support for empty HTTP GET request
 		else if (strcmp(reqPath, "/") == 0){
 			char* res = "HTTP/1.1 200 OK\r\n\r\n";
-			bytesSent = send(client_fd, res, strlen(res), 0);
+			ssize_t bytesSent = send(client_fd, res, strlen(res), 0);
 
 			if(bytesSent == -1){
 				fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
@@ -103,9 +103,10 @@ void handle_connection(int client_fd, int argc, char** argv){
 			}
 		}
 
+		// Implementing support for "Not Found" case
 		else{
 			char* res = "HTTP/1.1 404 Not Found\r\n\r\n";
-			bytesSent = send(client_fd, res, strlen(res), 0);
+			ssize_t bytesSent = send(client_fd, res, strlen(res), 0);
 
 			if(bytesSent == -1){
 				fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
@@ -115,14 +116,6 @@ void handle_connection(int client_fd, int argc, char** argv){
 				free(readBuffer);
 				return;
 			}
-		}
-		// If any error occurs at any of the cases, -1 is returned
-		if (bytesSent == -1){
-			close(client_fd);
-			free(content);
-			free(content_dup);
-			free(readBuffer);
-			return;
 		}
 	}
 
@@ -143,7 +136,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 }
 
 // Function for handling the /echo/{str} endpoint
-ssize_t handle_echo_route(int client_fd, char* path){
+int handle_echo_route(int client_fd, char* path){
 	// The string to be returned back to the client
 	char* str = strtok(path, "/");
 	str = strtok(NULL, "/");
@@ -157,7 +150,6 @@ ssize_t handle_echo_route(int client_fd, char* path){
 
 	if(res == NULL){
 		fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
-		close(client_fd);
 		return -1;
 	}
 
@@ -165,14 +157,19 @@ ssize_t handle_echo_route(int client_fd, char* path){
 	sprintf(res, format, strlen(str), str);
 	ssize_t bytesSent = send(client_fd, res, strlen(res), 0);	
 
+	if(bytesSent == -1){
+		fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
+		return -1;
+	}
+
 	// Freeing up allocated memory
 	free(res);
 
-	return bytesSent;
+	return 0;
 }
 
 // Function for handling the /user-agent endpoint
-ssize_t handle_user_agent_route(int client_fd, char* path){
+int handle_user_agent_route(int client_fd, char* path){
 	// Variable for storing user agent used by the client
 	char* user_agent = strtok(NULL, " ");
 	user_agent = strtok(NULL, " ");
@@ -182,7 +179,6 @@ ssize_t handle_user_agent_route(int client_fd, char* path){
 
 		if (is_substring(REQUEST_END, user_agent)){
 			fprintf(stderr, "Error: User agent not found\n");
-			close(client_fd);
 			return -1;
 		}
 	}
@@ -199,7 +195,6 @@ ssize_t handle_user_agent_route(int client_fd, char* path){
 
 	if(res == NULL){
 		fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
-		close(client_fd);
 		return -1;
 	}
 
@@ -207,18 +202,22 @@ ssize_t handle_user_agent_route(int client_fd, char* path){
 	sprintf(res, format, strlen(user_agent), user_agent);
 	ssize_t bytesSent = send(client_fd, res, strlen(res), 0);
 
+	if(bytesSent == -1){
+		fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
+		return -1;
+	}
+
 	// Freeing up allocated memory
 	free(res);
 
-	return bytesSent;
+	return 0;
 }
 
 // Function for handling the /files/{file} endpoint
-ssize_t handle_files_route(int client_fd, char* path, int argc, char** argv){
+int handle_files_route(int client_fd, char* path, int argc, char** argv){
 	// Using this endpoint, the server will return the requested file.
 	if(argc <= 2){
 		fprintf(stderr, "Usage: --directory <relative_directory_path\n");
-		close(client_fd);
 		exit(1);
 	}
 
@@ -241,7 +240,6 @@ ssize_t handle_files_route(int client_fd, char* path, int argc, char** argv){
 
 			if(directory == NULL){
 				fprintf(stderr, "Error: Unable to resolve absolute path - %s\n", strerror(errno));
-				close(client_fd);
 				exit(1);
 			}
 		}
@@ -251,7 +249,6 @@ ssize_t handle_files_route(int client_fd, char* path, int argc, char** argv){
 
 			if(directory == NULL){
 				fprintf(stderr, "Error: Unable to allocate memory for the absolute path - %s\n", strerror(errno));
-				close(client_fd);
 				return -1;
 			}
 
@@ -260,14 +257,12 @@ ssize_t handle_files_route(int client_fd, char* path, int argc, char** argv){
 			// Check if the directory exists
 			if(is_directory_exists(directory) == -1){
 				fprintf(stderr, "Error: %s\n", strerror(errno));
-				close(client_fd);
 				exit(1);
 			}
 		}
 	}
 	else{
 		fprintf(stderr, "Error: No --directory flag\n");
-		close(client_fd);
 		exit(1);
 	}
 
@@ -279,7 +274,6 @@ ssize_t handle_files_route(int client_fd, char* path, int argc, char** argv){
 
 	if(directory == NULL){
 		fprintf(stderr, "Error: Memory reallocation for storing the directory name failed\n");
-		close(client_fd);
 		return -1;
 	}
 
@@ -293,7 +287,6 @@ ssize_t handle_files_route(int client_fd, char* path, int argc, char** argv){
 
 		if(file == NULL){
 			fprintf(stderr, "Error: Unable to open file requested\n");
-			close(client_fd);
 			return -1;
 		}
 
@@ -302,7 +295,6 @@ ssize_t handle_files_route(int client_fd, char* path, int argc, char** argv){
 
 		if(filesize == -1){
 			fprintf(stderr, "Error: Unable to determine the size of file requested \n");
-			close(client_fd);
 			return -1;
 		}
 
@@ -314,7 +306,6 @@ ssize_t handle_files_route(int client_fd, char* path, int argc, char** argv){
 		size_t newLen = fread(fileBuffer, sizeof(char), (size_t)filesize, file);
 		if(ferror(file) != 0){
 			fprintf(stderr, "Error: Unable to read file\n");
-			close(client_fd);
 			return -1;
 		}
 		
@@ -330,7 +321,6 @@ ssize_t handle_files_route(int client_fd, char* path, int argc, char** argv){
 
 		if(res == NULL){
 			fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
-			close(client_fd);
 			return -1;
 		}
 
@@ -348,10 +338,15 @@ ssize_t handle_files_route(int client_fd, char* path, int argc, char** argv){
 		bytesSent = send(client_fd, res, strlen(res), 0);
 	}
 
+	if(bytesSent == -1){
+		fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
+		return -1;
+	}
+
 	// Freeing up allocated memory 
 	free(directory);
 
-	return bytesSent;
+	return 0;
 }
 
 #endif 
