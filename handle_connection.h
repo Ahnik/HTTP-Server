@@ -59,7 +59,7 @@ void handle_connection(int client_fd, int argc, const char** argv){
 	// Extracting the content of the HTTP request
 	char* content = strdup(readBuffer);
 	char* content_dup = strdup(readBuffer);
-	printf("Content: %s\n", content);
+	printf("Content: \n%s\n", content);
 
 	// Extracting the HTTP method in the HTTP request
 	char* method = strtok(content_dup, " ");
@@ -143,7 +143,6 @@ void handle_connection(int client_fd, int argc, const char** argv){
 	if(status == -1){
 		fprintf(stderr, "Unable to fulfil client request\n");
 	}
-
 
 	// Freeing up allocated memory
     free(content);
@@ -341,6 +340,7 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 	return 0;
 }
 
+/* TODO: Function under construction */
 // Function to handle the POST method of the /files/{filesname} endpoint
 int handle_post_route(int client_fd, char* path, char* content, int argc, const char** argv){
 	// Extracting the requested filename
@@ -371,11 +371,13 @@ int handle_post_route(int client_fd, char* path, char* content, int argc, const 
 		exit(1);
 	}
 
+	printf("Content: \n%s\n", content);
+
 	// The content of the file stored as a string
 	char* file_content = strtok(content, REQUEST_END);
 	file_content = strtok(NULL, REQUEST_END);
 
-	printf("%s\n", file_content);
+	printf("File Content: %s\n", file_content);
 
 	// Creating the file for writing 
 	FILE* file = fopen(pathname, "w");
@@ -387,12 +389,17 @@ int handle_post_route(int client_fd, char* path, char* content, int argc, const 
 	}
 
 	// Writing the contents into the file
-	fwrite(file_content, sizeof(char), strlen(file_content), file);
+	size_t bytesWritten = fwrite((void*)file_content, sizeof(char), strlen(file_content), file);
 	if(ferror(file) != 0){
 		fprintf(stderr, "Error: Unable to write onto the file\n");
 		free(pathname);
 		return -1;
 	}
+
+	printf("Bytes Written: %zu", bytesWritten);
+
+	// Closing the file
+	fclose(file);
 
 	// Free up allocated memory
 	free(pathname);
