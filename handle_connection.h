@@ -146,15 +146,40 @@ void handle_connection(int client_fd, int argc, char** argv){
 			// Variable for storing the directory name where the requested file is to be located
 			char* directory;
 
+			// Extracting the requested filename
+			char* filename = strtok(reqPath, "/");
+			filename = strtok(NULL, "/");
+
 			// Checking if the --directory flag is used while running this program or not
 			if(strcmp(argv[1], "--directory") == 0){
-				// Extracting the real path for the directory
-				directory = realpath(argv[2], NULL);
+				if(argv[2][0] == '.'){
+					// Extracting the real path for the directory
+					directory = realpath(argv[2], NULL);
 
-				if(directory == NULL){
-					fprintf(stderr, "Error: Unable to resolve absolute path - %s\n", strerror(errno));
-					close(client_fd);
-					exit(1);
+					if(directory == NULL){
+						fprintf(stderr, "Error: Unable to resolve absolute path - %s\n", strerror(errno));
+						close(client_fd);
+						exit(1);
+					}
+				}
+				else{
+					// Allocating memory for the real path of the directory
+					directory = (char*)calloc((strlen(argv[2]) + 1), sizeof(*directory));
+
+					if(directory == NULL){
+						fprintf(stderr, "Error: Unable to allocate memory for the absolute path - %s\n", strerror(errno));
+						close(client_fd);
+						return;
+					}
+
+					strcpy(directory, argv[2]);
+
+					// Check if the directory exists
+					if(is_directory_exists(directory) == -1){
+						fprintf(stderr, "Error: %s\n", strerror(errno));
+						close(client_fd);
+						exit(1);
+					}
 				}
 			}
 			else{
@@ -163,9 +188,7 @@ void handle_connection(int client_fd, int argc, char** argv){
 				exit(1);
 			}
 
-			// Extracting the requested filename
-			char* filename = strtok(reqPath, "/");
-			filename = strtok(NULL, "/");
+			printf("%s\n", directory);
 
 			// The size of the real path of the file
 			ssize_t pathsize = strlen(directory) + strlen(filename) + 2;
