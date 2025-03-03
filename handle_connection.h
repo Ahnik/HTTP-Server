@@ -20,41 +20,7 @@ int handle_post_route(int client_fd, char* path, char* content, int argc, const 
 
 // Function to handle each connection
 void handle_connection(int client_fd, int argc, const char** argv){
-	// Reading the HTTP request from the client in readBuffer whose memory is dynamically allocated
-	char* readBuffer = NULL;
-	char chara;
-	size_t size = 0;
-
-	// Reading the HTTP request and dynamically allocating memory for the buffer one byte at a time
-	while(1){
-		if(recv(client_fd, (void*)&chara, sizeof(chara), 0) == -1){
-			fprintf(stderr, "Error: Receiving failed - %s\n", strerror(errno));
-			close(client_fd);
-			return;
-		}
-
-		size++;
-		readBuffer = (char*)reallocarray((void*)readBuffer, size, sizeof(*readBuffer));
-		if(readBuffer == NULL){
-			fprintf(stderr, "Error: Memory allocation for HTTP request failed\n");
-			close(client_fd); 	
-			return;
-		}
-		readBuffer[size - 1] = chara;
-
-		if(is_substring(REQUEST_END, readBuffer))
-			break;
-	}
-
-	size++;
-	readBuffer = (char*)reallocarray((void*)readBuffer, size, sizeof(*readBuffer));
-	if(readBuffer == NULL){
-		fprintf(stderr, "Error: Memory allocation for HTTP request failed\n");
-		close(client_fd); 	
-		return;
-	}
-
- 	readBuffer[size - 1] = '\0';
+	char* readBuffer = read_http_request(client_fd);
 
 	// Extracting the content of the HTTP request
 	char* content = strdup(readBuffer);
@@ -75,19 +41,16 @@ void handle_connection(int client_fd, int argc, const char** argv){
 	// Implementing support for GET method
 	if(strcmp(method, "GET") == 0){
 		// Implementing support for /echo/{str} endpoint
-		if(strncmp(reqPath, "/echo/", 6) == 0){
+		if(strncmp(reqPath, "/echo/", 6) == 0)
 			status = handle_echo_route(client_fd, reqPath);
-		}
 
 		// Implementing support for /user-agent endpoint
-		else if(strncmp(reqPath, "/user-agent", 11) == 0){	
+		else if(strncmp(reqPath, "/user-agent", 11) == 0)
 			status = handle_user_agent_route(client_fd, reqPath);
-		}	
-
+		
 		// Implementing support for /files/{filename} endpoint
-		else if(strncmp(reqPath, "/files/", 7) == 0){
+		else if(strncmp(reqPath, "/files/", 7) == 0)
 			status = handle_files_route(client_fd, reqPath, argc, argv);
-		}
 
 		// Implementing support for empty HTTP GET request
 		else if (strcmp(reqPath, "/") == 0){
