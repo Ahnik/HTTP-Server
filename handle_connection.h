@@ -16,7 +16,7 @@
 int handle_echo_route(int client_fd, char* path);
 int handle_user_agent_route(int client_fd, char* path);
 int handle_files_route(int client_fd, char* path, int argc, const char** argv);
-int handle_post_route(int client_fd, char* path, int argc, const char** argv);
+int handle_post_route(int client_fd, char* path, char* content, int argc, const char** argv);
 
 // Function to handle each connection
 void handle_connection(int client_fd, int argc, const char** argv){
@@ -123,7 +123,19 @@ void handle_connection(int client_fd, int argc, const char** argv){
 	// Implementing support for the POST method
 	else if(strcmp(method, "POST") == 0){
 		if(strncmp(reqPath, "/files/", 7) == 0){
-			handle_post_route(client_fd, reqPath, argc, argv);
+			if(handle_post_route(client_fd, reqPath, content, argc, argv) == 0){
+				char* res = "HTTP/1.1 201 Created\r\n\r\n";
+				ssize_t bytesSent = send(client_fd, res, strlen(res), 0);
+
+				if(bytesSent == -1){
+					fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
+					close(client_fd);
+					free(content);
+					free(content_dup);
+					free(readBuffer);
+					return;
+				}
+			}
 		}
 	}
 
@@ -166,6 +178,7 @@ int handle_echo_route(int client_fd, char* path){
 
 	if(bytesSent == -1){
 		fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
+		free(res);
 		return -1;
 	}
 
@@ -211,6 +224,7 @@ int handle_user_agent_route(int client_fd, char* path){
 
 	if(bytesSent == -1){
 		fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
+		free(res);
 		return -1;
 	}
 
@@ -232,32 +246,35 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 	}
 
 	// Variable for storing the directory name where the requested file is to be located
-	char* directory;
+	char* pathname;
 
 	// Variable to return the number of bytes sent
 	ssize_t bytesSent;
 
 	// Checking if the --directory flag is used while running this program or not
-	if(strcmp(argv[1], "--directory") == 0)
-		directory = create_pathname(argv[2], filename);
+	if(strcmp(argv[1], "--directory") == 0){
+		pathname = create_pathname(argv[2], filename);
 
-		if(directory == NULL){
+		if(pathname == NULL){
 			fprintf(stderr, "Error: %s\n", strerror(errno));
+			free(pathname);
 			return -1;
 		}
-	
+	}
+
 	else{
 		fprintf(stderr, "Error: No --directory flag\n");
 		exit(1);
 	}
 
 	// If the server can access the file, open it
-	if(!access(directory, F_OK)){
+	if(!access(pathname, F_OK)){
 		// File pointer to the requested file
-		FILE* file = fopen(directory, "rb");
+		FILE* file = fopen(pathname, "rb");
 
 		if(file == NULL){
 			fprintf(stderr, "Error: Unable to open file requested\n");
+			free(pathname);
 			return -1;
 		}
 
@@ -266,6 +283,7 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 
 		if(filesize == -1){
 			fprintf(stderr, "Error: Unable to determine the size of file requested \n");
+			free(pathname);
 			return -1;
 		}
 
@@ -277,6 +295,7 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 		size_t newLen = fread(fileBuffer, sizeof(char), (size_t)filesize, file);
 		if(ferror(file) != 0){
 			fprintf(stderr, "Error: Unable to read file\n");
+			free(pathname);
 			return -1;
 		}
 		
@@ -292,6 +311,7 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 
 		if(res == NULL){
 			fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
+			free(pathname);
 			return -1;
 		}
 
@@ -311,17 +331,18 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 
 	if(bytesSent == -1){
 		fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
+		free(pathname);
 		return -1;
 	}
 
 	// Freeing up allocated memory 
-	free(directory);
+	free(pathname);
 
 	return 0;
 }
 
 // Function to handle the POST method of the /files/{filesname} endpoint
-int handle_post_route(int client_fd, char* path, int argc, const char** argv){
+int handle_post_route(int client_fd, char* path, char* content, int argc, const char** argv){
 	// Extracting the requested filename
 	char* filename = strtok(path, "/");
 	filename = strtok(NULL, "/");
@@ -332,24 +353,49 @@ int handle_post_route(int client_fd, char* path, int argc, const char** argv){
 	}
 
 	// Variable for storing the directory name where the requested file is to be located
-	char* directory;
-
-	// Variable to return the number of bytes sent
-	ssize_t bytesSent;
+	char* pathname;
 
 	// Checking if the --directory flag is used while running this program or not
-	if(strcmp(argv[1], "--directory") == 0)
-		directory = create_pathname(argv[2], filename);
+	if(strcmp(argv[1], "--directory") == 0){
+		pathname = create_pathname(argv[2], filename);
 
-		if(directory == NULL){
+		if(pathname == NULL){
 			fprintf(stderr, "Error: %s\n", strerror(errno));
+			free(pathname);
 			return -1;
 		}
+	}
 	
 	else{
 		fprintf(stderr, "Error: No --directory flag\n");
 		exit(1);
 	}
+
+	// The content of the file stored as a string
+	char* file_content = strtok(content, REQUEST_END);
+	file_content = strtok(NULL, REQUEST_END);
+
+	printf("%s\n", file_content);
+
+	// Creating the file for writing 
+	FILE* file = fopen(pathname, "w");
+
+	if(file == NULL){
+		fprintf(stderr, "Error: Unable to create target file\n");
+		free(pathname);
+		return -1;
+	}
+
+	// Writing the contents into the file
+	fwrite(file_content, sizeof(char), strlen(file_content), file);
+	if(ferror(file) != 0){
+		fprintf(stderr, "Error: Unable to write onto the file\n");
+		free(pathname);
+		return -1;
+	}
+
+	// Free up allocated memory
+	free(pathname);
 
 	return 0;
 }
