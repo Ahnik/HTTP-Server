@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <errno.h>
 
 // Returns 1 if the substring occurs at the end of the string and 0 otherwise
 int is_substring(char* substring, char* string){
@@ -66,5 +67,45 @@ int is_directory_exists(const char* path){
     
     return 0;
 }
+
+// Function that takes the directory path(absolute or relative) and filename as arguments and returns the complete pathname
+char* create_pathname(const char* directory, const char* filename){
+    char* pathname;
+    if(directory[0] == '.'){
+        // Extracting the real path for the directory
+        pathname = realpath(directory, NULL);
+
+        if(pathname == NULL)
+            exit(1);
+    }
+    else{
+        // Allocating memory for the real path of the directory
+        pathname = (char*)calloc((strlen(directory) + 1), sizeof(*pathname));
+
+        if(pathname == NULL)
+            return NULL;
+
+        strcpy(pathname, directory);
+
+        // Check if the directory exists
+        if(is_directory_exists(pathname) == -1)
+            exit(1);
+    }
+
+    // The size of the real path of the file
+	ssize_t pathsize = strlen(pathname) + strlen(filename) + 2;
+
+	// Dynamically allocating memory store the full real path name of the requested file
+	pathname = (char*)reallocarray(pathname, pathsize, sizeof(*pathname));
+
+	if(pathname == NULL)
+		return NULL;
+
+	strcat(pathname, "/");
+	strcat(pathname, filename);
+
+    return pathname;
+}
+
 
 #endif

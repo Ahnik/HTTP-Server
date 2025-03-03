@@ -15,10 +15,11 @@
 
 int handle_echo_route(int client_fd, char* path);
 int handle_user_agent_route(int client_fd, char* path);
-int handle_files_route(int client_fd, char* path, int argc, char** argv);
+int handle_files_route(int client_fd, char* path, int argc, const char** argv);
+int handle_post_route(int client_fd, char* path, int argc, const char** argv);
 
 // Function to handle each connection
-void handle_connection(int client_fd, int argc, char** argv){
+void handle_connection(int client_fd, int argc, const char** argv){
 	// Reading the HTTP request from the client in readBuffer whose memory is dynamically allocated
 	char* readBuffer = NULL;
 	char chara;
@@ -122,9 +123,15 @@ void handle_connection(int client_fd, int argc, char** argv){
 	// Implementing support for the POST method
 	else if(strcmp(method, "POST") == 0){
 		if(strncmp(reqPath, "/files/", 7) == 0){
-			// Using this endpoint, the server will be able to accept text from the client and create a new file with that text.
+			handle_post_route(client_fd, reqPath, argc, argv);
 		}
 	}
+
+	// If the client request couldn't be fulfilled due to some error
+	if(status == -1){
+		fprintf(stderr, "Unable to fulfil client request\n");
+	}
+
 
 	// Freeing up allocated memory
     free(content);
@@ -214,71 +221,35 @@ int handle_user_agent_route(int client_fd, char* path){
 }
 
 // Function for handling the /files/{file} endpoint
-int handle_files_route(int client_fd, char* path, int argc, char** argv){
-	// Using this endpoint, the server will return the requested file.
+int handle_files_route(int client_fd, char* path, int argc, const char** argv){
+	// Extracting the requested filename
+	char* filename = strtok(path, "/");
+	filename = strtok(NULL, "/");
+
 	if(argc <= 2){
 		fprintf(stderr, "Usage: --directory <relative_directory_path\n");
 		exit(1);
 	}
 
-	/* TODO: Implement error handling for if the directory name is invalid */
 	// Variable for storing the directory name where the requested file is to be located
 	char* directory;
 
 	// Variable to return the number of bytes sent
 	ssize_t bytesSent;
 
-	// Extracting the requested filename
-	char* filename = strtok(path, "/");
-	filename = strtok(NULL, "/");
-
 	// Checking if the --directory flag is used while running this program or not
-	if(strcmp(argv[1], "--directory") == 0){
-		if(argv[2][0] == '.'){
-			// Extracting the real path for the directory
-			directory = realpath(argv[2], NULL);
+	if(strcmp(argv[1], "--directory") == 0)
+		directory = create_pathname(argv[2], filename);
 
-			if(directory == NULL){
-				fprintf(stderr, "Error: Unable to resolve absolute path - %s\n", strerror(errno));
-				exit(1);
-			}
+		if(directory == NULL){
+			fprintf(stderr, "Error: %s\n", strerror(errno));
+			return -1;
 		}
-		else{
-			// Allocating memory for the real path of the directory
-			directory = (char*)calloc((strlen(argv[2]) + 1), sizeof(*directory));
-
-			if(directory == NULL){
-				fprintf(stderr, "Error: Unable to allocate memory for the absolute path - %s\n", strerror(errno));
-				return -1;
-			}
-
-			strcpy(directory, argv[2]);
-
-			// Check if the directory exists
-			if(is_directory_exists(directory) == -1){
-				fprintf(stderr, "Error: %s\n", strerror(errno));
-				exit(1);
-			}
-		}
-	}
+	
 	else{
 		fprintf(stderr, "Error: No --directory flag\n");
 		exit(1);
 	}
-
-	// The size of the real path of the file
-	ssize_t pathsize = strlen(directory) + strlen(filename) + 2;
-
-	// Dynamically allocating memory store the full real path name of the requested file
-	directory = (char*)reallocarray(directory, pathsize, sizeof(*directory));
-
-	if(directory == NULL){
-		fprintf(stderr, "Error: Memory reallocation for storing the directory name failed\n");
-		return -1;
-	}
-
-	strcat(directory, "/");
-	strcat(directory, filename);
 
 	// If the server can access the file, open it
 	if(!access(directory, F_OK)){
@@ -345,6 +316,40 @@ int handle_files_route(int client_fd, char* path, int argc, char** argv){
 
 	// Freeing up allocated memory 
 	free(directory);
+
+	return 0;
+}
+
+// Function to handle the POST method of the /files/{filesname} endpoint
+int handle_post_route(int client_fd, char* path, int argc, const char** argv){
+	// Extracting the requested filename
+	char* filename = strtok(path, "/");
+	filename = strtok(NULL, "/");
+
+	if(argc <= 2){
+		fprintf(stderr, "Usage: --directory <relative_directory_path\n");
+		exit(1);
+	}
+
+	// Variable for storing the directory name where the requested file is to be located
+	char* directory;
+
+	// Variable to return the number of bytes sent
+	ssize_t bytesSent;
+
+	// Checking if the --directory flag is used while running this program or not
+	if(strcmp(argv[1], "--directory") == 0)
+		directory = create_pathname(argv[2], filename);
+
+		if(directory == NULL){
+			fprintf(stderr, "Error: %s\n", strerror(errno));
+			return -1;
+		}
+	
+	else{
+		fprintf(stderr, "Error: No --directory flag\n");
+		exit(1);
+	}
 
 	return 0;
 }

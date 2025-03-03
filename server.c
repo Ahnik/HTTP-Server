@@ -15,7 +15,7 @@ The executable is to executed as "./server --directory <directory_relative_path>
 
 #define PORT 4221
 
-int main(int argc, char** argv) {
+int main(int argc, const char** argv) {
 	// Disable output buffering
 	setbuf(stdout, NULL);		// Sets the stdout stream to be unbuffered
  	setbuf(stderr, NULL);		// Sets the stderr stream to be unbuffered
