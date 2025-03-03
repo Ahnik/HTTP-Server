@@ -14,6 +14,9 @@
 void handle_connection(int client_fd, int argc, const char** argv){
 	char* readBuffer = read_http_request(client_fd);
 
+	if(readBuffer == NULL)
+		return;
+
 	// Extracting the content of the HTTP request
 	char* content = strdup(readBuffer);
 	char* content_dup = strdup(readBuffer);
