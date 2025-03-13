@@ -44,7 +44,7 @@ int main(int argc, const char** argv) {
 	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
 	 	fprintf(stderr, "Error: SO_REUSEADDR failed - %s\n", strerror(errno));
 	 	return 1;
-	 }
+	}
 	
 	// serv_addr is a struct specifying the socket address of the server.
 	struct sockaddr_in serv_addr = { .sin_family = AF_INET ,

@@ -9,7 +9,7 @@
 #define REQUEST_END "\r\n\r\n"
 
 // Returns 1 if the substring occurs at the end of the string and 0 otherwise
-int is_substring(char* substring, char* string){
+int is_substring(const char* substring, const char* string){
     size_t substringLen = strlen(substring);
     size_t stringLen = strlen(string);
 
@@ -114,35 +114,36 @@ char* read_http_request(int client_fd){
     // Reading the HTTP request from the client in readBuffer whose memory is dynamically allocated
 	char* readBuffer = NULL;
 	char chara;
-	size_t size = 0;
+	size_t size = 1;
 
 	// Reading the HTTP request and dynamically allocating memory for the buffer one byte at a time
 	while(1){
-		if(recv(client_fd, (void*)&chara, sizeof(chara), 0) == -1){
+		if(recv(client_fd, (void*)&chara, sizeof(chara), 0) <= 0){
 			fprintf(stderr, "Error: Receiving failed - %s\n", strerror(errno));
 			return NULL;
 		}
 
+        // Incrementing the size of the buffer every time the loop runs until we have read the entire HTTP request
 		size++;
 		readBuffer = (char*)reallocarray((void*)readBuffer, size, sizeof(*readBuffer));
 		if(readBuffer == NULL){
 			fprintf(stderr, "Error: Memory allocation for HTTP request failed\n");
 			return NULL;
 		}
-		readBuffer[size - 1] = chara;
 
-		if(is_substring(REQUEST_END, readBuffer))
-			break;
+        // Add the NULL character on the last spot and the new character in the second last spot.
+		readBuffer[size - 1] = '\0';
+        readBuffer[size - 2] = chara;
+
+        //printf("%s\n\n", readBuffer);
+
+		if(is_substring(REQUEST_END, readBuffer)){
+            //printf("The request end is reached\n");
+            break;
+        }
+        //else    
+            //printf("%s\n", readBuffer);
 	}
-
-	size++;
-	readBuffer = (char*)reallocarray((void*)readBuffer, size, sizeof(*readBuffer));
-	if(readBuffer == NULL){
-		fprintf(stderr, "Error: Memory allocation for HTTP request failed\n");
-		return NULL;
-	}
-
- 	readBuffer[size - 1] = '\0';
 
     return readBuffer;
 }
