@@ -6,7 +6,8 @@
 #include <stdio.h>
 #include <errno.h>
 
-#define REQUEST_END "\r\n\r\n"
+#define HEADERS_END "\r\n\r\n"
+#define CONTENT_LENGTH_HEADER_LEN strlen("Content-Length: ")
 
 // Returns 1 if the substring occurs at the end of the string and 0 otherwise
 int is_substring(const char* substring, const char* string){
@@ -112,14 +113,22 @@ char* create_pathname(const char* directory, const char* filename){
 // Function to read HTTP request into a dynamically allocated buffer
 char* read_http_request(int client_fd){
     // Reading the HTTP request from the client in readBuffer whose memory is dynamically allocated
-	char* readBuffer = NULL;
-	char chara;
 	size_t size = 1;
+	char* readBuffer = calloc(size, sizeof(*readBuffer));
+
+    if(readBuffer == NULL){
+        fprintf(stderr, "Error: Memory allocation for HTTP request failed\n");
+        free(readBuffer);
+        return NULL;
+    }
+    
+	char chara;
 
 	// Reading the HTTP request and dynamically allocating memory for the buffer one byte at a time
 	while(1){
 		if(recv(client_fd, (void*)&chara, sizeof(chara), 0) <= 0){
 			fprintf(stderr, "Error: Receiving failed - %s\n", strerror(errno));
+            free(readBuffer);
 			return NULL;
 		}
 
@@ -128,6 +137,7 @@ char* read_http_request(int client_fd){
 		readBuffer = (char*)reallocarray((void*)readBuffer, size, sizeof(*readBuffer));
 		if(readBuffer == NULL){
 			fprintf(stderr, "Error: Memory allocation for HTTP request failed\n");
+            free(readBuffer);
 			return NULL;
 		}
 
@@ -135,11 +145,46 @@ char* read_http_request(int client_fd){
 		readBuffer[size - 1] = '\0';
         readBuffer[size - 2] = chara;
 
-        //printf("%s\n\n", readBuffer);
+		if(is_substring(HEADERS_END, readBuffer)){
+            // If the HTTP request is a GET request
+            if(readBuffer[0] == 'G')
+                break;
 
-		if(is_substring(REQUEST_END, readBuffer)){
-            //printf("The request end is reached\n");
-            break;
+            // If the HTTP request is a POST request
+            else if(readBuffer[0] == 'P'){
+                // Extract the content length from the content-length header.
+                size_t content_length;
+                char* content_length_header = strstr(readBuffer, "Content-Length: ");
+
+                if(content_length_header == NULL){
+                    fprintf(stderr, "Error: Content-Length header not found\n");
+                    free(readBuffer);
+                    return NULL;
+                }
+
+                sscanf(content_length_header + CONTENT_LENGTH_HEADER_LEN, "%zu", &content_length);
+
+                readBuffer = (char*)reallocarray((void*)readBuffer, size + content_length, sizeof(*readBuffer));
+                if(readBuffer == NULL){
+                    fprintf(stderr, "Error: Memory allocation for HTTP request failed\n");
+                    free(readBuffer);
+                    return NULL;
+                }
+
+                readBuffer[size + content_length - 1] = '\0';
+
+                for(int i=0; i<content_length; i++){
+                    if(recv(client_fd, (void*)&chara, sizeof(chara), 0) <= 0){
+                        fprintf(stderr, "Error: Receiving failed - %s\n", strerror(errno));
+                        free(readBuffer);
+                        return NULL;
+                    }
+
+                    readBuffer[size + i - 1] = chara;
+                }
+
+                break;
+            }
         }
         //else    
             //printf("%s\n", readBuffer);

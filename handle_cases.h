@@ -11,7 +11,7 @@
 
 #define OCTET_STREAM_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: \r\n\r\n")
 #define TEXT_PLAIN_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: \r\n\r\n")
-#define REQUEST_END "\r\n\r\n"
+#define HEADERS_END "\r\n\r\n"
 
 // Function for handling the /echo/{str} endpoint
 int handle_echo_route(int client_fd, char* path){
@@ -56,7 +56,7 @@ int handle_user_agent_route(int client_fd, char* path){
 	while(!is_substring("User-Agent:", user_agent)){
 		user_agent = strtok(NULL, " ");
 
-		if (is_substring(REQUEST_END, user_agent)){
+		if (is_substring(HEADERS_END, user_agent)){
 			fprintf(stderr, "Error: User agent not found\n");
 			return -1;
 		}
@@ -200,7 +200,6 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 	return 0;
 }
 
-/* TODO: Function under construction */
 // Function to handle the POST method of the /files/{filesname} endpoint
 int handle_post_route(int client_fd, char* path, char* content, int argc, const char** argv){
 	// Extracting the requested filename
@@ -234,8 +233,8 @@ int handle_post_route(int client_fd, char* path, char* content, int argc, const 
 	printf("Content: \n%s\n", content);
 
 	// The content of the file stored as a string
-	char* file_content = strtok(content, REQUEST_END);
-	file_content = strtok(NULL, REQUEST_END);
+	char* file_content = strstr(content, HEADERS_END);
+	file_content += 4;
 
 	printf("File Content: %s\n", file_content);
 
