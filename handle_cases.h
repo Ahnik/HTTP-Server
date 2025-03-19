@@ -13,6 +13,9 @@
 #define TEXT_PLAIN_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: \r\n\r\n")
 #define HEADERS_END "\r\n\r\n"
 
+#define A_OK 0
+#define A_ERROR -1
+
 // Function for handling the /echo/{str} endpoint
 int handle_echo_route(int client_fd, char* path){
 	// The string to be returned back to the client
@@ -28,7 +31,7 @@ int handle_echo_route(int client_fd, char* path){
 
 	if(res == NULL){
 		fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
-		return -1;
+		return A_ERROR;
 	}
 
 	// Sending the HTTP response
@@ -38,13 +41,13 @@ int handle_echo_route(int client_fd, char* path){
 	if(bytesSent == -1){
 		fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
 		free(res);
-		return -1;
+		return A_ERROR;
 	}
 
 	// Freeing up allocated memory
 	free(res);
 
-	return 0;
+	return A_OK;
 }
 
 // Function for handling the /user-agent endpoint
@@ -58,7 +61,7 @@ int handle_user_agent_route(int client_fd, char* path){
 
 		if (is_substring(HEADERS_END, user_agent)){
 			fprintf(stderr, "Error: User agent not found\n");
-			return -1;
+			return A_ERROR;
 		}
 	}
 
@@ -74,7 +77,7 @@ int handle_user_agent_route(int client_fd, char* path){
 
 	if(res == NULL){
 		fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
-		return -1;
+		return A_ERROR;
 	}
 
 	// Sending the HTTP response to the client
@@ -84,13 +87,13 @@ int handle_user_agent_route(int client_fd, char* path){
 	if(bytesSent == -1){
 		fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
 		free(res);
-		return -1;
+		return A_ERROR;
 	}
 
 	// Freeing up allocated memory
 	free(res);
 
-	return 0;
+	return A_OK;
 }
 
 // Function for handling the /files/{file} endpoint
@@ -117,7 +120,7 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 		if(pathname == NULL){
 			fprintf(stderr, "Error: %s\n", strerror(errno));
 			free(pathname);
-			return -1;
+			return A_ERROR;
 		}
 	}
 
@@ -134,16 +137,16 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 		if(file == NULL){
 			fprintf(stderr, "Error: Unable to open file requested\n");
 			free(pathname);
-			return -1;
+			return A_ERROR;
 		}
 
 		// The size of the requested file
 		ssize_t filesize = fsize(file);
 
 		if(filesize == -1){
-			fprintf(stderr, "Error: Unable to determine the size of file requested \n");
+			fprintf(stderr, "Error: Unable to determine the size of file requested\n");
 			free(pathname);
-			return -1;
+			return A_ERROR;
 		}
 
 		// Dynamically allocating memory for a buffer for storing the contents of the requested file
@@ -155,7 +158,7 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 		if(ferror(file) != 0){
 			fprintf(stderr, "Error: Unable to read file\n");
 			free(pathname);
-			return -1;
+			return A_ERROR;
 		}
 		
 		// NULL terminating the buffer and closing the requested file
@@ -171,7 +174,7 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 		if(res == NULL){
 			fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
 			free(pathname);
-			return -1;
+			return A_ERROR;
 		}
 
 		// Sending the HTTP response
@@ -191,79 +194,13 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 	if(bytesSent == -1){
 		fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
 		free(pathname);
-		return -1;
+		return A_ERROR;
 	}
 
 	// Freeing up allocated memory 
 	free(pathname);
 
-	return 0;
-}
-
-// Function to handle the POST method of the /files/{filesname} endpoint
-int handle_post_route(int client_fd, char* path, char* content, int argc, const char** argv){
-	// Extracting the requested filename
-	char* filename = strtok(path, "/");
-	filename = strtok(NULL, "/");
-
-	if(argc <= 2){
-		fprintf(stderr, "Usage: --directory <relative_directory_path\n");
-		exit(1);
-	}
-
-	// Variable for storing the directory name where the requested file is to be located
-	char* pathname;
-
-	// Checking if the --directory flag is used while running this program or not
-	if(strcmp(argv[1], "--directory") == 0){
-		pathname = create_pathname(argv[2], filename);
-
-		if(pathname == NULL){
-			fprintf(stderr, "Error: %s\n", strerror(errno));
-			free(pathname);
-			return -1;
-		}
-	}
-	
-	else{
-		fprintf(stderr, "Error: No --directory flag\n");
-		exit(1);
-	}
-
-	printf("Content: \n%s\n", content);
-
-	// The content of the file stored as a string
-	char* file_content = strstr(content, HEADERS_END);
-	file_content += 4;
-
-	printf("File Content: %s\n", file_content);
-
-	// Creating the file for writing 
-	FILE* file = fopen(pathname, "w");
-
-	if(file == NULL){
-		fprintf(stderr, "Error: Unable to create target file\n");
-		free(pathname);
-		return -1;
-	}
-
-	// Writing the contents into the file
-	size_t bytesWritten = fwrite((void*)file_content, sizeof(char), strlen(file_content), file);
-	if(ferror(file) != 0){
-		fprintf(stderr, "Error: Unable to write onto the file\n");
-		free(pathname);
-		return -1;
-	}
-
-	printf("Bytes Written: %zu", bytesWritten);
-
-	// Closing the file
-	fclose(file);
-
-	// Free up allocated memory
-	free(pathname);
-
-	return 0;
+	return A_OK;
 }
 
 #endif
