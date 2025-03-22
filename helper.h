@@ -203,5 +203,41 @@ char* read_http_request(int client_fd){
     return readBuffer;
 }
 
+// Function to read a file upto a certain size and return its contents in a dynamically allocated character array
+char* read_file(FILE* file, ssize_t filesize){
+    // Dynamically allocating memory for a buffer for storing the contents of the requested file
+	char* fileBuffer = (char*)calloc(filesize+1, sizeof(*fileBuffer));
+
+	if(fileBuffer == NULL){
+		fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
+		return NULL;
+	}
+
+	fileBuffer[filesize] = '\0';
+		
+	// Reading the contents of the file into the buffer
+	size_t newLen = fread(fileBuffer, sizeof(char), (size_t)filesize, file);
+	if(ferror(file) != 0){
+		fprintf(stderr, "Error: Unable to read file\n");
+		free(fileBuffer);
+		return NULL;
+	}
+		
+	// NULL terminating the buffer and closing the requested file
+	fileBuffer[newLen++] = '\0';
+
+    return fileBuffer;
+}
+
+// Function to send an HTTP status code 500 to a client file descriptor
+int send_status_500(int client_fd){
+    char* res = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+
+	if(send(client_fd, res, strlen(res), 0))
+        return 0;
+    else
+        return -1;
+}
+
 
 #endif

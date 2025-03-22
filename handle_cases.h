@@ -123,7 +123,6 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 			return A_ERROR;
 		}
 	}
-
 	else{
 		fprintf(stderr, "Error: No --directory flag\n");
 		exit(1);
@@ -149,20 +148,13 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 			return A_ERROR;
 		}
 
-		// Dynamically allocating memory for a buffer for storing the contents of the requested file
-		char* fileBuffer = (char*)calloc(filesize+1, sizeof(*fileBuffer));
-		fileBuffer[filesize] = '\0';
-		
-		// Reading the contents of the file into the buffer
-		size_t newLen = fread(fileBuffer, sizeof(char), (size_t)filesize, file);
-		if(ferror(file) != 0){
-			fprintf(stderr, "Error: Unable to read file\n");
+		char* fileBuffer = read_file(file, filesize);
+
+		if(fileBuffer == NULL){
 			free(pathname);
 			return A_ERROR;
 		}
-		
-		// NULL terminating the buffer and closing the requested file
-		fileBuffer[newLen++] = '\0';
+
 		fclose(file);
 
 		// The format of the HTTP response
@@ -174,6 +166,7 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 		if(res == NULL){
 			fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
 			free(pathname);
+			free(fileBuffer);
 			return A_ERROR;
 		}
 

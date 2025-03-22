@@ -40,6 +40,7 @@ void handle_connection(int client_fd, int argc, const char** argv){
 	
 	// Implementing support for the POST method
 	else if(strcmp(method, "POST") == 0){
+		// If /files/ endpoint is encountered
 		if(strncmp(reqPath, "/files/", 7) == 0){
 			if(handle_post_method(client_fd, reqPath, content, argc, argv) == A_OK){
 				status = A_OK;
@@ -55,11 +56,24 @@ void handle_connection(int client_fd, int argc, const char** argv){
 				status = A_ERROR;
 			}
 		}
+		// Otherwise send that it is a bad request
+		else{
+			char* res = "HTTP/1.1 400 Bad Request\r\n\r\n";
+			ssize_t bytesSent = send(client_fd, res, strlen(res), 0);
+
+			if(bytesSent == -1){
+				fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
+				return A_ERROR;
+			}
+		}
 	}
 
 	// If the client request couldn't be fulfilled due to some error
 	if(status == A_ERROR){
 		fprintf(stderr, "Unable to fulfil client request\n");
+
+		if(send_status_500(client_fd) == -1)
+			fprintf(stderr, "Error: Unable to send HTTP status code 500 to client\n");
 	}
 
 	// Freeing up allocated memory
