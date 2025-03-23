@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include "helper.h"
+#include "encoder.h"
 
 #define OCTET_STREAM_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: \r\n\r\n")
 #define TEXT_PLAIN_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: \r\n\r\n")
@@ -21,22 +22,27 @@ int handle_echo_route(int client_fd, char* path){
 	// The string to be returned back to the client
 	char* str = strtok(path, "/");
 	str = strtok(NULL, "/");
-	
-	// The format of the HTTP response
-	const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
+
 	size_t str_len = strlen(str);
 
 	// Dynamically allocating memory for the HTTP response
-	char* res = (char*)calloc(TEXT_PLAIN_HEADERS_LENGTH + str_len + count_digits(str_len) + 1, sizeof(*res));
+	size_t res_size = TEXT_PLAIN_HEADERS_LENGTH + str_len + count_digits(str_len) + 1;
+	unsigned char* res = (unsigned char*)calloc(res_size, sizeof(*res));
 
 	if(res == NULL){
 		fprintf(stderr, "Error: Memory allocation for HTTP response failed\n");
 		return A_ERROR;
 	}
+	
+	// The format of the HTTP response
+	const char* format = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %zu\r\n\r\n%s";
 
 	// Sending the HTTP response
-	sprintf(res, format, strlen(str), str);
-	ssize_t bytesSent = send(client_fd, res, strlen(res), 0);	
+	sprintf((char*)res, format, strlen(str), str);
+
+	size_t response_size = strlen((char*)res);
+	ssize_t bytesSent = send(client_fd, res, response_size, 0);	
+	
 
 	if(bytesSent == -1){
 		fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
@@ -51,7 +57,7 @@ int handle_echo_route(int client_fd, char* path){
 }
 
 // Function for handling the /user-agent endpoint
-int handle_user_agent_route(int client_fd, char* path){
+int handle_user_agent_route(int client_fd){
 	// Variable for storing user agent used by the client
 	char* user_agent = strtok(NULL, " ");
 	user_agent = strtok(NULL, " ");
@@ -122,8 +128,7 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 			free(pathname);
 			return A_ERROR;
 		}
-	}
-	else{
+	}else{
 		fprintf(stderr, "Error: No --directory flag\n");
 		exit(1);
 	}
@@ -177,9 +182,7 @@ int handle_files_route(int client_fd, char* path, int argc, const char** argv){
 		// Freeing up allocated memory
 		free(res);
 		free(fileBuffer);
-	}
-	// Otherwise send Not Found
-	else{
+	}else{		// Otherwise send Not Found
 		char* res = "HTTP/1.1 404 Not Found\r\n\r\n";
 		bytesSent = send(client_fd, res, strlen(res), 0);
 	}

@@ -18,7 +18,7 @@ int is_substring(const char* substring, const char* string){
     size_t j = stringLen - 1;
 
     if (substringLen <= stringLen){
-        for (int k=0; k<substringLen; k++){
+        for (int k=0; k<(int)substringLen; k++){
             if (*(substring + i) == *(string + j)){
                 i--;
                 j--;
@@ -138,7 +138,7 @@ char* read_request_body(int client_fd, char* readBuffer, size_t size){
     readBuffer[size + content_length - 1] = '\0';
 
     // Fill in the request body into the buffer
-    for(int i=0; i<content_length; i++){
+    for(int i=0; i<(int)content_length; i++){
         if(recv(client_fd, (void*)&chara, sizeof(chara), 0) <= 0){
             fprintf(stderr, "Error: Receiving failed - %s\n", strerror(errno));
             free(readBuffer);
@@ -228,16 +228,5 @@ char* read_file(FILE* file, ssize_t filesize){
 
     return fileBuffer;
 }
-
-// Function to send an HTTP status code 500 to a client file descriptor
-int send_status_500(int client_fd){
-    char* res = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-
-	if(send(client_fd, res, strlen(res), 0))
-        return 0;
-    else
-        return -1;
-}
-
 
 #endif
