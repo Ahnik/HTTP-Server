@@ -40,7 +40,7 @@ int handle_get_method(int client_fd, char* path, int argc, const char** argv){
 		status = handle_files_route(client_fd, path, argc, argv);
 
     // Implementing support for empty HTTP GET request
-	else if (strcmp(path, "/") == 0){
+	else if(strcmp(path, "/") == 0){
 		char* res = "HTTP/1.1 200 OK\r\n\r\n";
 		ssize_t bytesSent = send(client_fd, res, strlen(res), 0);
 
@@ -136,6 +136,67 @@ int handle_post_method(int client_fd, char* path, char* content, int argc, const
 	}
 
 	return A_OK;
+}
+
+// Function to handle the DELETE request method with the /files/{files} endpoint
+int handle_delete_request(int client_fd, char* path, int argc, const char** argv){
+	// Extracting the requested filename
+	char* filename = strtok(path, "/");
+	filename = strtok(NULL, "/");
+
+	if(argc <= 2){
+		fprintf(stderr, "Usage: --directory <relative_directory_path\n");
+		exit(1);
+	}
+
+	// Variable for storing the directory name where the requested file is to be located
+	char* pathname;
+
+	// Checking if the --directory flag is used while running this program or not
+	if(strcmp(argv[1], "--directory") == 0){
+		pathname = create_pathname(argv[2], filename);
+
+		if(pathname == NULL){
+			fprintf(stderr, "Error: %s\n", strerror(errno));
+			free(pathname);
+			return A_ERROR;
+		}
+	}else{
+		fprintf(stderr, "Error: No --directory flag\n");
+		exit(1);
+	}
+
+	// Variable to store the number of bytes sent
+	ssize_t bytesSent;
+
+	// Variable to store the status code
+	int status = A_OK;
+
+	// If the server can access the file, delete it
+	if(!access(pathname, F_OK)){
+		if(remove(pathname) == 0){
+			printf("File successfully deleted\n");
+			// Send the status OK
+			char* res = "HTTP/1.1 200 OK\r\n\r\n";
+			bytesSent = send(client_fd, res, strlen(res), 0);
+		}else
+			status = A_ERROR;
+
+	}else{ 	// Otherwise send Not Found
+		char* res = "HTTP/1.1 404 Not Found\r\n\r\n";
+		bytesSent = send(client_fd, res, strlen(res), 0);
+	}
+
+	if(bytesSent == -1){
+		fprintf(stderr, "Error: Send failed - %s\n", strerror(errno));
+		free(pathname);
+		status = A_ERROR;
+	}
+
+	// Freeing up allocated space
+	free(pathname);
+
+	return status;
 }
 
 #endif
