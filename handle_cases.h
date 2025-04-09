@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include "helper.h"
-#include "encoder.h"
 
 #define OCTET_STREAM_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: \r\n\r\n")
 #define TEXT_PLAIN_HEADERS_LENGTH strlen("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: \r\n\r\n")
